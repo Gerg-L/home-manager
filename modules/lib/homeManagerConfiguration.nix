@@ -27,35 +27,21 @@ let
 
   throwForRemovedArgs = v: lib.throwIf (used != [ ]) msg (v args);
 in throwForRemovedArgs ({ modules ? [ ], nixpkgs ? null, extraSpecialArgs ? { }
-  , check ? true,
-  # Deprecated:
-  pkgs ? null, ... }:
-  let
-    pkgsPath = if nixpkgs != null then
-      (if (nixpkgs._type or "") == "flake" then
-        nixpkgs.outPath
-      else
-        toString nixpkgs)
-    else if (pkgs != null) then
-      lib.warn ''
-        Passing pkgs to lib.homeManagerConfiguration is deprecated
-        instead pass nixpkgs directly and ensure nixpkgs.system is set
-      '' pkgs.path
-    else
-      throw ''
-        Neither nixpkgs or pkgs is passed to lib.homeManagerConfiguration!
-      '';
-  in import ../. {
+  , check ? true, pkgs ? null, ... }:
+  import ../. {
 
-    inherit extraSpecialArgs check pkgsPath;
-    modules = modules ++
+    inherit check modules pkgs nixpkgs;
 
-      lib.optional (pkgs != null && nixpkgs == null) {
+    extraSpecialArgs = let
+      attrs = [ "config" "pkgs" "lib" "modulesPath" ];
+      usedSpecialArgs =
+        builtins.filter (n: (extraSpecialArgs.${n} or null) != null) attrs;
+      warnSpecialArgs = v:
+        lib.warnIf (usedSpecialArgs != [ ]) ''
+          passing config, pkgs, lib, or modulesPath is being passed to extraSpecialArgs
+          these attributes will be ignored as they are potentially harmful
+        '' v;
+      filteredSpecialArgs = v: warnSpecialArgs (removeAttrs v attrs);
 
-        nixpkgs = {
-          system = lib.mkDefault pkgs.hostPlatform;
-          config = lib.mkDefault pkgs.config;
-          inherit (pkgs) overlays;
-        };
-      };
+    in filteredSpecialArgs extraSpecialArgs;
   })

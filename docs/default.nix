@@ -1,10 +1,8 @@
-{ pkgs, pkgsPath,
+{ pkgs, lib,
 
 release, isReleaseBranch }:
 
 let
-
-  lib = import ../modules/lib/stdlib-extended.nix (import "${pkgsPath}/lib");
 
   nmdSrc = fetchTarball {
     url =
@@ -25,13 +23,7 @@ let
 
   # Make sure the used package is scrubbed to avoid actually
   # instantiating derivations.
-  scrubbedPkgsModule = {
-    imports = [{
-      _module.args = { pkgs = lib.mkForce (nmd.scrubDerivations "pkgs" pkgs); };
-    }];
-  };
-
-  dontCheckDefinitions = { _module.check = false; };
+  scrubbedPkgs = (nmd.scrubDerivations "pkgs" pkgs);
 
   gitHubDeclaration = user: repo: subpath:
     let urlRef = if isReleaseBranch then "release-${release}" else "master";
@@ -68,21 +60,40 @@ let
 
   hmOptionsDocs = buildOptionsDocs {
     modules = import ../modules/all-modules.nix {
-      inherit lib pkgsPath;
+      inherit lib;
+      pkgsPath = scrubbedPkgs.path;
+      pkgs = scrubbedPkgs;
+      readonlyPkgs = true;
       check = false;
-    } ++ [ scrubbedPkgsModule ];
+    };
     variablelistId = "home-manager-options";
   };
 
   nixosOptionsDocs = buildOptionsDocs {
-    modules = [ ../nixos scrubbedPkgsModule dontCheckDefinitions ];
+    modules = [
+      ../nixos
+      {
+        _module = {
+          check = false;
+          args.pkgs = scrubbedPkgs;
+        };
+      }
+    ];
     includeModuleSystemOptions = false;
     variablelistId = "nixos-options";
     optionIdPrefix = "nixos-opt-";
   };
 
   nixDarwinOptionsDocs = buildOptionsDocs {
-    modules = [ ../nix-darwin scrubbedPkgsModule dontCheckDefinitions ];
+    modules = [
+      ../nix-darwin
+      {
+        _module = {
+          check = false;
+          args.pkgs = scrubbedPkgs;
+        };
+      }
+    ];
     includeModuleSystemOptions = false;
     variablelistId = "nix-darwin-options";
     optionIdPrefix = "nix-darwin-opt-";
@@ -142,9 +153,12 @@ in {
   jsonModuleMaintainers = pkgs.writeText "hm-module-maintainers.json" (let
     result = lib.evalModules {
       modules = import ../modules/all-modules.nix {
-        inherit lib pkgsPath;
+        inherit lib;
+        pkgsPath = scrubbedPkgs.path;
+        pkgs = scrubbedPkgs;
+        readonlyPkgs = true;
         check = false;
-      } ++ [ scrubbedPkgsModule ];
+      };
     };
   in builtins.toJSON result.config.meta.maintainers);
 }

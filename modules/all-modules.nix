@@ -1,11 +1,11 @@
-{ pkgsPath, lib, check ? true }:
+{ pkgsPath, lib, check ? true, readonlyPkgs ? false, pkgs ? null }:
 
 let
   baseModules = (import ./module-list.nix) ++ [
-    ./misc/nixpkgs.nix
     ("${pkgsPath}/nixos/modules/misc/assertions.nix")
     ("${pkgsPath}/nixos/modules/misc/meta.nix")
-  ];
+  ] ++ lib.optional (!readonlyPkgs) ./misc/nixpkgs.nix
+    ++ lib.optional (readonlyPkgs) ./misc/nixpkgs-readonly.nix;
 
 in baseModules ++ [{
   _module = {
@@ -15,7 +15,7 @@ in baseModules ++ [{
       modulesPath = toString ./.;
     };
   };
+  #This also checks to make sure lib is set correctly
   lib = lib.hm;
-}
-
-]
+  nixpkgs.pkgs = lib.mkIf readonlyPkgs (lib.mkDefault pkgs);
+}]

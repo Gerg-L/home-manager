@@ -1,11 +1,9 @@
-{ config, options, pkgs, lib, pkgsPath, ... }:
+{ config, pkgs, lib, pkgsPath, ... }:
 
 with lib;
 
 let
   cfg = config.nixpkgs;
-  opt = options.nixpkgs;
-
   isConfig = x: builtins.isAttrs x || isFunction x;
 
   optCall = f: x: if isFunction f then f x else f;
@@ -45,55 +43,11 @@ let
 
     overlays = if cfg.overlays != null then cfg.overlays else [ ];
 
-    #crossSystem = if cfg.system != null then cfg.system else throw "system must be set";
-    localSystem =
-      if cfg.system != null then cfg.system else throw "system must be set";
+    localSystem.system = cfg.system;
   };
-
-  pkgsDefined = opt.pkgs.isDefined;
 
 in {
   options.nixpkgs = {
-    pkgs = lib.mkOption {
-      defaultText = ''
-        import pkgsPath {
-          inherit (cfg) config overlays localSystem crossSystem;
-        }
-      '';
-      type = lib.types.pkgs;
-      example = "import <nixpkgs> {}";
-      description = ''
-        If set, the pkgs argument to all NixOS modules is the value of
-        this option, extended with `nixpkgs.overlays`, if
-        that is also set. Either `nixpkgs.crossSystem` or
-        `nixpkgs.localSystem` will be used in an assertion
-        to check that the NixOS and Nixpkgs architectures match. Any
-        other options in `nixpkgs.*`, notably `config`,
-        will be ignored.
-
-        If unset, the pkgs argument to all NixOS modules is determined
-        as shown in the default value for this option.
-
-        The default value imports the Nixpkgs source files
-        relative to the location of this NixOS module, because
-        NixOS and Nixpkgs are distributed together for consistency,
-        so the `nixos` in the default value is in fact a
-        relative path. The `config`, `overlays`,
-        `localSystem`, and `crossSystem` come
-        from this option's siblings.
-
-        This option can be used by applications like NixOps to increase
-        the performance of evaluation, or to create packages that depend
-        on a container that should be built with the exact same evaluation
-        of Nixpkgs, for example. Applications like this should set
-        their default value using `mkDefault`, so
-        user-provided configuration can override it without using
-        `.
-
-        Note that using a distinct version of Nixpkgs with NixOS may
-        be an unexpected source of problems. Use this option with care.
-      '';
-    };
     config = mkOption {
       default = null;
       example = { allowBroken = true; };
@@ -156,11 +110,7 @@ in {
     };
 
     system = mkOption {
-      default = if (!lib.inPureEvalMode) then {
-        system = builtins.currentSystem;
-      } else
-        null;
-      type = types.nullOr types.str;
+      type = types.str;
       example = "i686-linux";
       description = ''
         Specifies the Nix platform type for which the user environment
@@ -172,30 +122,10 @@ in {
     };
   };
 
-  config = lib.mkMerge [
-    (lib.mkIf (!pkgsDefined) {
-      # We explicitly set the default override priority, so that we do not need
-      # to evaluate finalPkgs in case an override is placed on `_module.args.pkgs`.
-      # After all, to determine a definition priority, we need to evaluate `._type`,
-      # which is somewhat costly for Nixpkgs. With an explicit priority, we only
-      # evaluate the wrapper to find out that the priority is lower, and then we
-      # don't need to evaluate `finalPkgs`.
-      _module.args.pkgs =
-        mkOverride modules.defaultOverridePriority defaultPkgs.__splicedPackages;
-    })
-
-    (lib.mkIf pkgsDefined {
-      _module.args.pkgs =
-        # find mistaken definitions
-        lib.mkForce
-        (builtins.seq cfg.config builtins.seq cfg.overlays builtins.seq
-          cfg.system (cfg.pkgs.appendOverlays cfg.overlays));
-      nixpkgs = {
-        config = lib.mkForce cfg.pkgs.config;
-        overlays = lib.mkForce cfg.pkgs.overlays;
-        system = lib.mkForce cfg.pkgs.hostPlatform.system;
-      };
-
-    })
-  ];
+  config = {
+    nixpkgs = lib.mkIf (!lib.inPureEvalMode) {
+      system = lib.mkDefault builtins.currentSystem;
+    };
+    _module.args.pkgs = lib.mkForce defaultPkgs.__splicedPackages;
+  };
 }

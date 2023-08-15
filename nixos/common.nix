@@ -1,58 +1,71 @@
 # This module is the common base for the NixOS and nix-darwin modules.
 # For OS-specific configuration, please edit nixos/default.nix or nix-darwin/default.nix instead.
 
-{ config, lib, pkgs, ... }:
-
-with lib;
+{ config, pkgs, lib, ... }:
 
 let
+
+  extendedLib = import ../modules/lib/stdlib-extended.nix cfg.customPkgs.lib;
+
   hostPkgs = pkgs;
 
   cfg = config.home-manager;
 
-  extendedLib = import ../modules/lib/stdlib-extended.nix lib;
-
-  hmModule = types.submoduleWith {
+  hmModule = lib.types.submoduleWith {
     description = "Home Manager module";
-    specialArgs = {
+
+    specialArgs = let
+      attrs = [ "config" "pkgs" "lib" "modulesPath" ];
+      usedSpecialArgs =
+        builtins.filter (n: (cfg.extraSpecialArgs.${n} or null) != null) attrs;
+      warnSpecialArgs = v:
+        lib.warnIf (usedSpecialArgs != [ ]) ''
+          passing config, pkgs, lib, or modulesPath is being passed to extraSpecialArgs
+          these attributes will be ignored as they are potentially harmful
+        '' v;
+      filteredSpecialArgs = v: warnSpecialArgs (removeAttrs v attrs);
+
+    in (filteredSpecialArgs cfg.extraSpecialArgs) // {
       lib = extendedLib;
       osConfig = config;
-      modulesPath = builtins.toString ../modules;
-    } // cfg.extraSpecialArgs;
-    modules = [
+    };
+    modules = (import ../modules/all-modules.nix ({
+      #this is fine here because pkgs is already instantiated
+      pkgsPath = cfg.customPkgs.path;
+      pkgs = cfg.customPkgs;
+      readonlyPkgs = true;
+      lib = extendedLib;
+    })) ++ [
+
       ({ name, ... }: {
-        imports = import ../modules/all-modules.nix {
-          lib = extendedLib;
-          pkgsPath = pkgs.path;
-        };
+        submoduleSupport.enable = true;
+        submoduleSupport.externalPackageInstall = cfg.useUserPackages;
 
-        config = {
-          nixpkgs.system = pkgs.stdenv.hostPlatform.system;
-          nixpkgs.pkgs = lib.mkIf (cfg.useGlobalPkgs) hostPkgs;
-          submoduleSupport.enable = true;
-          submoduleSupport.externalPackageInstall = cfg.useUserPackages;
+        home.username = config.users.users.${name}.name;
+        home.homeDirectory = config.users.users.${name}.home;
 
-          home.username = config.users.users.${name}.name;
-          home.homeDirectory = config.users.users.${name}.home;
-
-          # Make activation script use same version of Nix as system as a whole.
-          # This avoids problems with Nix not being in PATH.
-          nix.package = config.nix.package;
-        };
+        # Make activation script use same version of Nix as system as a whole.
+        # This avoids problems with Nix not being in PATH.
+        nix.package = config.nix.package;
       })
     ] ++ cfg.sharedModules;
   };
 
-in {
+in with lib; {
   options.home-manager = {
     useUserPackages = mkEnableOption ''
       installation of user packages through the
       {option}`users.users.<name>.packages` option'';
 
-    useGlobalPkgs = mkEnableOption ''
-      using the system configuration's `pkgs`
-      argument in Home Manager. This disables the Home Manager
-      options {option}`nixpkgs.*`'';
+    customPkgs = mkOption {
+      default = hostPkgs;
+      type = types.pkgs;
+      example = ''
+        import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; }'';
+      description = ''
+        Set the `pkgs` module argument to a already instantiated nixpkgs
+      '';
+    };
 
     backupFileExtension = mkOption {
       type = types.nullOr types.str;
@@ -113,3 +126,4 @@ in {
     environment.pathsToLink = mkIf cfg.useUserPackages [ "/etc/profile.d" ];
   };
 }
+

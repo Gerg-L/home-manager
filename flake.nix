@@ -62,7 +62,8 @@
           docs = import ./docs {
             inherit (releaseInfo) release isReleaseBranch;
             inherit pkgs;
-            pkgsPath = nixpkgs.outPath;
+            lib = import ./modules/lib/stdlib-extended.nix nixpkgs.lib;
+
           };
           hmPkg = pkgs.callPackage ./home-manager {
             path = self.outPath;

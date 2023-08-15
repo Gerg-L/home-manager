@@ -1,10 +1,10 @@
-{ pkgsPath ? <nixpkgs>, confPath, confAttr ? null, check ? true
+{ pkgs ? null, pkgsPath ? null, confPath, confAttr ? null, check ? true
 , newsReadIdsFile ? null }:
 
 let
   env = import ../modules {
 
-    inherit pkgsPath check;
+    inherit pkgsPath pkgs check;
 
     modules = [
       (if confAttr == "" || confAttr == null then
