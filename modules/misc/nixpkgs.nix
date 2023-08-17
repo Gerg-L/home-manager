@@ -126,6 +126,7 @@ in {
     nixpkgs = lib.mkIf (!lib.inPureEvalMode) {
       system = lib.mkDefault builtins.currentSystem;
     };
-    _module.args.pkgs = lib.mkForce defaultPkgs.__splicedPackages;
+    _module.args.pkgs = lib.mkOverride lib.modules.defaultOverridePriority
+      defaultPkgs.__splicedPackages;
   };
 }

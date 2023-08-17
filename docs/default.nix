@@ -1,6 +1,9 @@
-{ pkgs, lib,
+{ pkgs
 
-release, isReleaseBranch }:
+# Note, this should be "the standard library" + HM extensions.
+, lib
+
+, release, isReleaseBranch }:
 
 let
 
@@ -23,7 +26,11 @@ let
 
   # Make sure the used package is scrubbed to avoid actually
   # instantiating derivations.
-  scrubbedPkgs = (nmd.scrubDerivations "pkgs" pkgs);
+  scrubbedPkgsModule = {
+    _module.args.pkgs = lib.mkForce (nmd.scrubDerivations "pkgs" pkgs);
+  };
+
+  dontCheckDefinitions = { _module.check = false; };
 
   gitHubDeclaration = user: repo: subpath:
     let urlRef = if isReleaseBranch then "release-${release}" else "master";
@@ -59,41 +66,24 @@ let
     } // builtins.removeAttrs args [ "modules" "includeModuleSystemOptions" ]);
 
   hmOptionsDocs = buildOptionsDocs {
-    modules = import ../modules/all-modules.nix {
-      inherit lib;
-      pkgsPath = scrubbedPkgs.path;
-      pkgs = scrubbedPkgs;
-      readonlyPkgs = true;
+    modules = (import ../modules/all-modules.nix {
+      inherit lib pkgs;
+      pkgsPath = pkgs.path;
+      readonlyPkgs = false;
       check = false;
-    };
+    }) ++ [ scrubbedPkgsModule ];
     variablelistId = "home-manager-options";
   };
 
   nixosOptionsDocs = buildOptionsDocs {
-    modules = [
-      ../nixos
-      {
-        _module = {
-          check = false;
-          args.pkgs = scrubbedPkgs;
-        };
-      }
-    ];
+    modules = [ ../nixos scrubbedPkgsModule dontCheckDefinitions ];
     includeModuleSystemOptions = false;
     variablelistId = "nixos-options";
     optionIdPrefix = "nixos-opt-";
   };
 
   nixDarwinOptionsDocs = buildOptionsDocs {
-    modules = [
-      ../nix-darwin
-      {
-        _module = {
-          check = false;
-          args.pkgs = scrubbedPkgs;
-        };
-      }
-    ];
+    modules = [ ../nix-darwin scrubbedPkgsModule dontCheckDefinitions ];
     includeModuleSystemOptions = false;
     variablelistId = "nix-darwin-options";
     optionIdPrefix = "nix-darwin-opt-";
@@ -152,13 +142,12 @@ in {
   # Unstable, mainly for CI.
   jsonModuleMaintainers = pkgs.writeText "hm-module-maintainers.json" (let
     result = lib.evalModules {
-      modules = import ../modules/all-modules.nix {
-        inherit lib;
-        pkgsPath = scrubbedPkgs.path;
-        pkgs = scrubbedPkgs;
-        readonlyPkgs = true;
+      modules = (import ../modules/all-modules.nix {
+        inherit lib pkgs;
+        pkgsPath = pkgs.path;
+        readonlyPkgs = false;
         check = false;
-      };
+      }) ++ [ scrubbedPkgsModule ];
     };
   in builtins.toJSON result.config.meta.maintainers);
 }

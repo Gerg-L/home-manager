@@ -1,15 +1,15 @@
 # This module is the common base for the NixOS and nix-darwin modules.
 # For OS-specific configuration, please edit nixos/default.nix or nix-darwin/default.nix instead.
 
-{ config, pkgs, lib, ... }:
+{ config, options, pkgs, lib, ... }:
 
 let
 
-  extendedLib = import ../modules/lib/stdlib-extended.nix cfg.customPkgs.lib;
-
-  hostPkgs = pkgs;
-
+  opt = options.home-manager;
   cfg = config.home-manager;
+
+  pkgsOr = if opt.customPkgs.isDefined then cfg.customPkgs else pkgs;
+  #pkgsOr = pkgs;
 
   hmModule = lib.types.submoduleWith {
     description = "Home Manager module";
@@ -26,15 +26,15 @@ let
       filteredSpecialArgs = v: warnSpecialArgs (removeAttrs v attrs);
 
     in (filteredSpecialArgs cfg.extraSpecialArgs) // {
-      lib = extendedLib;
+      lib = import ../modules/lib/stdlib-extended.nix pkgsOr.lib;
       osConfig = config;
     };
     modules = (import ../modules/all-modules.nix ({
       #this is fine here because pkgs is already instantiated
-      pkgsPath = cfg.customPkgs.path;
-      pkgs = cfg.customPkgs;
+      pkgsPath = pkgsOr.path;
+      pkgs = pkgsOr;
       readonlyPkgs = true;
-      lib = extendedLib;
+      lib = import ../modules/lib/stdlib-extended.nix pkgsOr.lib;
     })) ++ [
 
       ({ name, ... }: {
@@ -53,12 +53,12 @@ let
 
 in with lib; {
   options.home-manager = {
+
     useUserPackages = mkEnableOption ''
       installation of user packages through the
       {option}`users.users.<name>.packages` option'';
 
     customPkgs = mkOption {
-      default = hostPkgs;
       type = types.pkgs;
       example = ''
         import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; }'';
