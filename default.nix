@@ -1,12 +1,13 @@
 { pkgs ? null }:
 let
-  pkgsPath = if pkgs == null then <nixpkgs> else pkgs.path;
   pkgs_ = if pkgs == null then import <nixpkgs> { } else pkgs;
+  pkgsPath = pkgs_.path;
 in rec {
   docs = let releaseInfo = pkgs.lib.importJSON ./release.json;
   in with import ./docs {
     inherit pkgsPath;
     pkgs = pkgs_;
+    lib = import ./modules/lib/stdlib-extended.nix pkgs_.lib;
     inherit (releaseInfo) release isReleaseBranch;
   }; {
     html = manual.html;
@@ -23,7 +24,7 @@ in rec {
   install =
     pkgs_.callPackage ./home-manager/install.nix { inherit home-manager; };
 
-  nixos = import ./nixos pkgsPath;
+  nixos = import ./nixos;
 
   path = ./.;
 }

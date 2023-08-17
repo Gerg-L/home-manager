@@ -1,5 +1,4 @@
-{ pkgs ? null, pkgsPath ? null, confPath, confAttr ? null, check ? true
-, newsReadIdsFile ? null }:
+{ pkgs ? null, pkgsPath ? null, confPath, confAttr ? null, check ? true }:
 
 let
   env = import ../modules {

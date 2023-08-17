@@ -9,7 +9,6 @@ let
   cfg = config.home-manager;
 
   pkgsOr = if opt.customPkgs.isDefined then cfg.customPkgs else pkgs;
-  #pkgsOr = pkgs;
 
   hmModule = lib.types.submoduleWith {
     description = "Home Manager module";
@@ -20,8 +19,8 @@ let
         builtins.filter (n: (cfg.extraSpecialArgs.${n} or null) != null) attrs;
       warnSpecialArgs = v:
         lib.warnIf (usedSpecialArgs != [ ]) ''
-          passing config, pkgs, lib, or modulesPath is being passed to extraSpecialArgs
-          these attributes will be ignored as they are potentially harmful
+          config, pkgs, lib, or modulesPath is being passed to extraSpecialArgs
+          these attributes are potentially harmful and will be ignored
         '' v;
       filteredSpecialArgs = v: warnSpecialArgs (removeAttrs v attrs);
 
@@ -30,10 +29,8 @@ let
       osConfig = config;
     };
     modules = (import ../modules/all-modules.nix ({
-      #this is fine here because pkgs is already instantiated
-      pkgsPath = pkgsOr.path;
       pkgs = pkgsOr;
-      readonlyPkgs = true;
+      readOnlyPkgs = true;
       lib = import ../modules/lib/stdlib-extended.nix pkgsOr.lib;
     })) ++ [
 
@@ -57,6 +54,11 @@ in with lib; {
     useUserPackages = mkEnableOption ''
       installation of user packages through the
       {option}`users.users.<name>.packages` option'';
+
+    useGlobalPkgs = mkEnableOption ''
+      using the system configuration's `pkgs`
+      argument in Home Manager. This disables the Home Manager
+      options {option}`nixpkgs.*`'';
 
     customPkgs = mkOption {
       type = types.pkgs;
@@ -126,4 +128,3 @@ in with lib; {
     environment.pathsToLink = mkIf cfg.useUserPackages [ "/etc/profile.d" ];
   };
 }
-

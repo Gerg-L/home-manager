@@ -1,11 +1,19 @@
-{ pkgsPath, lib, check ? true, readonlyPkgs ? false, pkgs ? null }:
+{ pkgs ? null
+
+, pkgsPath ? pkgs.path
+
+, lib ? import ./lib/stdlib-extended.nix (pkgs.lib)
+
+, check ? true
+
+, readOnlyPkgs ? false }:
 
 let
   baseModules = (import ./module-list.nix) ++ [
     ("${pkgsPath}/nixos/modules/misc/assertions.nix")
     ("${pkgsPath}/nixos/modules/misc/meta.nix")
-  ] ++ lib.optional (!readonlyPkgs) ./misc/nixpkgs.nix
-    ++ lib.optional (readonlyPkgs) ./misc/nixpkgs-readonly.nix;
+  ] ++ lib.optional (!readOnlyPkgs) ./misc/nixpkgs.nix
+    ++ lib.optional (readOnlyPkgs) ./misc/nixpkgs-readonly.nix;
 
 in baseModules ++ [{
   _module = {
@@ -15,7 +23,7 @@ in baseModules ++ [{
       modulesPath = toString ./.;
     };
   };
-  #This also checks to make sure lib is set correctly
+  #This will error if lib isn't properly extended
   lib = lib.hm;
-  nixpkgs.pkgs = lib.mkIf readonlyPkgs (lib.mkDefault pkgs);
+  nixpkgs.pkgs = lib.mkIf readOnlyPkgs (lib.mkDefault pkgs);
 }]

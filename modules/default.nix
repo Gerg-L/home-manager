@@ -27,7 +27,7 @@
     then <nixpkgs>
     else
       throw ''
-        Neither nixpkgs or pkgs is passed to the modules/default.nix
+        Neither nixpkgs or pkgs is passed to modules/default.nix
       '';
 
   lib = import ./lib/stdlib-extended.nix (
@@ -45,18 +45,18 @@
     then import <nixpkgs/lib>
     else
       throw ''
-        this should never happen :)
+        Neither nixpkgs or pkgs is passed to modules/default.nix
       ''
   );
 
-  readonlyPkgs = if (! pkgsIsNull) 
-  then 
-    if pkgsIsPkgs 
-    then true 
-    else lib.warn '' 
+  readOnlyPkgs = if (! pkgsIsNull)
+  then
+    if pkgsIsPkgs
+    then true
+    else lib.warn ''
       The pkgs passed to modules/default.nix is not of type "pkgs"
       It will be ignored
-    '' false 
+    '' false
   else false;
 
   collectFailed = cfg:
@@ -68,9 +68,10 @@
     lib.fold f res res.config.warnings;
 
   hmModules = import ./all-modules.nix {
-    inherit check lib pkgsPath pkgs readonlyPkgs;
+    inherit check lib pkgsPath pkgs readOnlyPkgs;
   };
 
+  #This use of lib passes lib to all modules
   rawModule = lib.evalModules {
     specialArgs = extraSpecialArgs;
     modules = modules ++ hmModules;

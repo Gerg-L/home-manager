@@ -45,7 +45,10 @@
       forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
     in {
       devShells = forAllSystems (system:
-        let tests = import ./tests { inherit nixpkgs system; };
+        let
+          tests = import ./tests {
+            pkgs = nixpkgs.legacyPackages.${system};
+          };
         in tests.run);
 
       formatter = forAllSystems (system:

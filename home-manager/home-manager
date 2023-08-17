@@ -242,7 +242,7 @@ function doInspectOption() {
     modulesExpr="let confPath = \"${HOME_MANAGER_CONFIG_NIX}\"; "
     modulesExpr+="confAttr = \"${HOME_MANAGER_CONFIG_ATTRIBUTE_NIX}\"; in "
     modulesExpr+="(import <home-manager/modules> {"
-    modulesExpr+=" configuration = if confAttr == \"\" then confPath else (import confPath).\${confAttr};"
+    modulesExpr+=" modules = [(if confAttr == \"\" then confPath else (import confPath).\${confAttr})];"
     modulesExpr+=" nixpkgs = @pkgsPath@; check = true; })"
 
     nixos-option \
@@ -345,7 +345,7 @@ $xdgVars
   # want to update the value, then make sure to first check the Home Manager
   # release notes.
   home.stateVersion = "23.05"; # Please read the comment before changing.
-  # The system to build this configuration for 
+  # The system to build this config for
   nixpkgs.system = "$(nix eval --expr builtins.currentSystem --raw --impure)";
 
   # The home.packages option allows you to install Nix packages into your

@@ -67,9 +67,8 @@ let
 
   hmOptionsDocs = buildOptionsDocs {
     modules = (import ../modules/all-modules.nix {
-      inherit lib pkgs;
+      inherit lib;
       pkgsPath = pkgs.path;
-      readonlyPkgs = false;
       check = false;
     }) ++ [ scrubbedPkgsModule ];
     variablelistId = "home-manager-options";
@@ -143,9 +142,8 @@ in {
   jsonModuleMaintainers = pkgs.writeText "hm-module-maintainers.json" (let
     result = lib.evalModules {
       modules = (import ../modules/all-modules.nix {
-        inherit lib pkgs;
+        inherit lib;
         pkgsPath = pkgs.path;
-        readonlyPkgs = false;
         check = false;
       }) ++ [ scrubbedPkgsModule ];
     };
